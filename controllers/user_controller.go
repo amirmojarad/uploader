@@ -31,6 +31,7 @@ func LoginUser(crud *crud.Crud, userSchema *ent.User) (int, gin.H) {
 				"message": "wrong password",
 			}
 		} else {
+			token :=
 			return http.StatusOK, gin.H{
 				"user":    fetchedUser,
 				"message": "logged in successfully",
