@@ -50,6 +50,7 @@ func TestRegisterDuplicate(t *testing.T) {
 
 type RegisterSchema struct {
 	Message string `json:"message"`
+	Token   string `json:"token"`
 	User    struct {
 		Id       int    `json:"id"`
 		Username string `json:"username"`
@@ -74,4 +75,5 @@ func TestRegister(t *testing.T) {
 	}
 	assert.NotEmpty(t, rs.Message)
 	assert.NotEmpty(t, rs.User)
+	assert.NotEmpty(t, rs.Token)
 }

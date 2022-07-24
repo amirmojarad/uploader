@@ -3,9 +3,9 @@ package controllers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 	"strings"
+	"uploader/api/auth"
 	"uploader/db/crud"
 	"uploader/ent"
 	"uploader/usecases"
@@ -24,17 +24,17 @@ func LoginUser(crud *crud.Crud, userSchema *ent.User) (int, gin.H) {
 			"error":   err.Error(),
 		}
 	} else {
-		log.Println("ASDSADSADSAD")
-		log.Println(usecases.CheckPasswordHash(userSchema.Password, fetchedUser.Password))
 		if !usecases.CheckPasswordHash(userSchema.Password, fetchedUser.Password) {
 			return http.StatusBadRequest, gin.H{
 				"message": "wrong password",
 			}
 		} else {
-			token :=
+			jwtService := auth.JWTAuthService()
+			token := jwtService.GenerateToken(fetchedUser.Username)
 			return http.StatusOK, gin.H{
 				"user":    fetchedUser,
 				"message": "logged in successfully",
+				"token":   token,
 			}
 		}
 	}
@@ -53,9 +53,12 @@ func RegisterUser(crud *crud.Crud, userSchema *ent.User) (int, gin.H) {
 			"error":   err.Error(),
 		}
 	} else {
+		jwtService := auth.JWTAuthService()
+		token := jwtService.GenerateToken(createdUser.Username)
 		return http.StatusCreated, gin.H{
 			"user":    createdUser,
 			"message": "user created successfully",
+			"token":   token,
 		}
 	}
 }
