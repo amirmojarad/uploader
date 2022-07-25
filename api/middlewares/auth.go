@@ -22,7 +22,7 @@ func CheckAuth() gin.HandlerFunc {
 				return
 			} else {
 				claims := jwtService.GetMapClaims(t)
-				ctx.Set("email", claims["email"])
+				ctx.Set("username", claims["username"])
 				ctx.Next()
 			}
 		} else {
