@@ -1,6 +1,10 @@
 package schema
 
-import "entgo.io/ent"
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
+	"entgo.io/ent/schema/field"
+)
 
 // FileEntity holds the schema definition for the FileEntity entity.
 type FileEntity struct {
@@ -9,10 +13,19 @@ type FileEntity struct {
 
 // Fields of the FileEntity.
 func (FileEntity) Fields() []ent.Field {
-	return nil
+	return []ent.Field{
+		field.String("name").NotEmpty(),
+		field.String("type"),
+		field.Int64("size"),
+		field.String("url"),
+	}
 }
 
 // Edges of the FileEntity.
 func (FileEntity) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.From("owner", User.Type).
+			Ref("files").
+			Unique(),
+	}
 }

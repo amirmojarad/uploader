@@ -8,6 +8,7 @@ import (
 	"math"
 	"uploader/ent/fileentity"
 	"uploader/ent/predicate"
+	"uploader/ent/user"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -23,6 +24,9 @@ type FileEntityQuery struct {
 	order      []OrderFunc
 	fields     []string
 	predicates []predicate.FileEntity
+	// eager-loading edges.
+	withOwner *UserQuery
+	withFKs   bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -57,6 +61,28 @@ func (feq *FileEntityQuery) Unique(unique bool) *FileEntityQuery {
 func (feq *FileEntityQuery) Order(o ...OrderFunc) *FileEntityQuery {
 	feq.order = append(feq.order, o...)
 	return feq
+}
+
+// QueryOwner chains the current query on the "owner" edge.
+func (feq *FileEntityQuery) QueryOwner() *UserQuery {
+	query := &UserQuery{config: feq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := feq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := feq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(fileentity.Table, fileentity.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, fileentity.OwnerTable, fileentity.OwnerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(feq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first FileEntity entity from the query.
@@ -240,6 +266,7 @@ func (feq *FileEntityQuery) Clone() *FileEntityQuery {
 		offset:     feq.offset,
 		order:      append([]OrderFunc{}, feq.order...),
 		predicates: append([]predicate.FileEntity{}, feq.predicates...),
+		withOwner:  feq.withOwner.Clone(),
 		// clone intermediate query.
 		sql:    feq.sql.Clone(),
 		path:   feq.path,
@@ -247,8 +274,32 @@ func (feq *FileEntityQuery) Clone() *FileEntityQuery {
 	}
 }
 
+// WithOwner tells the query-builder to eager-load the nodes that are connected to
+// the "owner" edge. The optional arguments are used to configure the query builder of the edge.
+func (feq *FileEntityQuery) WithOwner(opts ...func(*UserQuery)) *FileEntityQuery {
+	query := &UserQuery{config: feq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	feq.withOwner = query
+	return feq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
+//
+// Example:
+//
+//	var v []struct {
+//		Name string `json:"name,omitempty"`
+//		Count int `json:"count,omitempty"`
+//	}
+//
+//	client.FileEntity.Query().
+//		GroupBy(fileentity.FieldName).
+//		Aggregate(ent.Count()).
+//		Scan(ctx, &v)
+//
 func (feq *FileEntityQuery) GroupBy(field string, fields ...string) *FileEntityGroupBy {
 	grbuild := &FileEntityGroupBy{config: feq.config}
 	grbuild.fields = append([]string{field}, fields...)
@@ -265,6 +316,17 @@ func (feq *FileEntityQuery) GroupBy(field string, fields ...string) *FileEntityG
 
 // Select allows the selection one or more fields/columns for the given query,
 // instead of selecting all fields in the entity.
+//
+// Example:
+//
+//	var v []struct {
+//		Name string `json:"name,omitempty"`
+//	}
+//
+//	client.FileEntity.Query().
+//		Select(fileentity.FieldName).
+//		Scan(ctx, &v)
+//
 func (feq *FileEntityQuery) Select(fields ...string) *FileEntitySelect {
 	feq.fields = append(feq.fields, fields...)
 	selbuild := &FileEntitySelect{FileEntityQuery: feq}
@@ -291,15 +353,26 @@ func (feq *FileEntityQuery) prepareQuery(ctx context.Context) error {
 
 func (feq *FileEntityQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*FileEntity, error) {
 	var (
-		nodes = []*FileEntity{}
-		_spec = feq.querySpec()
+		nodes       = []*FileEntity{}
+		withFKs     = feq.withFKs
+		_spec       = feq.querySpec()
+		loadedTypes = [1]bool{
+			feq.withOwner != nil,
+		}
 	)
+	if feq.withOwner != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, fileentity.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]interface{}, error) {
 		return (*FileEntity).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []interface{}) error {
 		node := &FileEntity{config: feq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -311,6 +384,36 @@ func (feq *FileEntityQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+
+	if query := feq.withOwner; query != nil {
+		ids := make([]int, 0, len(nodes))
+		nodeids := make(map[int][]*FileEntity)
+		for i := range nodes {
+			if nodes[i].user_files == nil {
+				continue
+			}
+			fk := *nodes[i].user_files
+			if _, ok := nodeids[fk]; !ok {
+				ids = append(ids, fk)
+			}
+			nodeids[fk] = append(nodeids[fk], nodes[i])
+		}
+		query.Where(user.IDIn(ids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := nodeids[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "user_files" returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.Owner = n
+			}
+		}
+	}
+
 	return nodes, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"uploader/ent/fileentity"
 	"uploader/ent/user"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -29,6 +30,21 @@ func (uc *UserCreate) SetUsername(s string) *UserCreate {
 func (uc *UserCreate) SetPassword(s string) *UserCreate {
 	uc.mutation.SetPassword(s)
 	return uc
+}
+
+// AddFileIDs adds the "files" edge to the FileEntity entity by IDs.
+func (uc *UserCreate) AddFileIDs(ids ...int) *UserCreate {
+	uc.mutation.AddFileIDs(ids...)
+	return uc
+}
+
+// AddFiles adds the "files" edges to the FileEntity entity.
+func (uc *UserCreate) AddFiles(f ...*FileEntity) *UserCreate {
+	ids := make([]int, len(f))
+	for i := range f {
+		ids[i] = f[i].ID
+	}
+	return uc.AddFileIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -160,6 +176,25 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Column: user.FieldPassword,
 		})
 		_node.Password = value
+	}
+	if nodes := uc.mutation.FilesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.FilesTable,
+			Columns: []string{user.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: fileentity.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

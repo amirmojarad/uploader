@@ -11,12 +11,25 @@ var (
 	// FileEntitiesColumns holds the columns for the "file_entities" table.
 	FileEntitiesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "type", Type: field.TypeString},
+		{Name: "size", Type: field.TypeInt64},
+		{Name: "url", Type: field.TypeString},
+		{Name: "user_files", Type: field.TypeInt, Nullable: true},
 	}
 	// FileEntitiesTable holds the schema information for the "file_entities" table.
 	FileEntitiesTable = &schema.Table{
 		Name:       "file_entities",
 		Columns:    FileEntitiesColumns,
 		PrimaryKey: []*schema.Column{FileEntitiesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "file_entities_users_files",
+				Columns:    []*schema.Column{FileEntitiesColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
@@ -38,4 +51,5 @@ var (
 )
 
 func init() {
+	FileEntitiesTable.ForeignKeys[0].RefTable = UsersTable
 }

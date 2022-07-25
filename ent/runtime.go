@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"uploader/ent/fileentity"
 	"uploader/ent/schema"
 	"uploader/ent/user"
 )
@@ -11,6 +12,12 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	fileentityFields := schema.FileEntity{}.Fields()
+	_ = fileentityFields
+	// fileentityDescName is the schema descriptor for name field.
+	fileentityDescName := fileentityFields[0].Descriptor()
+	// fileentity.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	fileentity.NameValidator = fileentityDescName.Validators[0].(func(string) error)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescUsername is the schema descriptor for username field.

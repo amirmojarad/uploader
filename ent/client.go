@@ -14,6 +14,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // Client is the client that holds all ent builders.
@@ -214,6 +215,22 @@ func (c *FileEntityClient) GetX(ctx context.Context, id int) *FileEntity {
 	return obj
 }
 
+// QueryOwner queries the owner edge of a FileEntity.
+func (c *FileEntityClient) QueryOwner(fe *FileEntity) *UserQuery {
+	query := &UserQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := fe.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(fileentity.Table, fileentity.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, fileentity.OwnerTable, fileentity.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(fe.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *FileEntityClient) Hooks() []Hook {
 	return c.hooks.FileEntity
@@ -302,6 +319,22 @@ func (c *UserClient) GetX(ctx context.Context, id int) *User {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryFiles queries the files edge of a User.
+func (c *UserClient) QueryFiles(u *User) *FileEntityQuery {
+	query := &FileEntityQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(fileentity.Table, fileentity.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.FilesTable, user.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.

@@ -7,13 +7,40 @@ const (
 	Label = "file_entity"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldName holds the string denoting the name field in the database.
+	FieldName = "name"
+	// FieldType holds the string denoting the type field in the database.
+	FieldType = "type"
+	// FieldSize holds the string denoting the size field in the database.
+	FieldSize = "size"
+	// FieldURL holds the string denoting the url field in the database.
+	FieldURL = "url"
+	// EdgeOwner holds the string denoting the owner edge name in mutations.
+	EdgeOwner = "owner"
 	// Table holds the table name of the fileentity in the database.
 	Table = "file_entities"
+	// OwnerTable is the table that holds the owner relation/edge.
+	OwnerTable = "file_entities"
+	// OwnerInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	OwnerInverseTable = "users"
+	// OwnerColumn is the table column denoting the owner relation/edge.
+	OwnerColumn = "user_files"
 )
 
 // Columns holds all SQL columns for fileentity fields.
 var Columns = []string{
 	FieldID,
+	FieldName,
+	FieldType,
+	FieldSize,
+	FieldURL,
+}
+
+// ForeignKeys holds the SQL foreign-keys that are owned by the "file_entities"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"user_files",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -23,5 +50,15 @@ func ValidColumn(column string) bool {
 			return true
 		}
 	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
+			return true
+		}
+	}
 	return false
 }
+
+var (
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
+)

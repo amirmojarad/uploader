@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"uploader/ent/fileentity"
 	"uploader/ent/predicate"
+	"uploader/ent/user"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -27,9 +28,65 @@ func (feu *FileEntityUpdate) Where(ps ...predicate.FileEntity) *FileEntityUpdate
 	return feu
 }
 
+// SetName sets the "name" field.
+func (feu *FileEntityUpdate) SetName(s string) *FileEntityUpdate {
+	feu.mutation.SetName(s)
+	return feu
+}
+
+// SetType sets the "type" field.
+func (feu *FileEntityUpdate) SetType(s string) *FileEntityUpdate {
+	feu.mutation.SetType(s)
+	return feu
+}
+
+// SetSize sets the "size" field.
+func (feu *FileEntityUpdate) SetSize(i int64) *FileEntityUpdate {
+	feu.mutation.ResetSize()
+	feu.mutation.SetSize(i)
+	return feu
+}
+
+// AddSize adds i to the "size" field.
+func (feu *FileEntityUpdate) AddSize(i int64) *FileEntityUpdate {
+	feu.mutation.AddSize(i)
+	return feu
+}
+
+// SetURL sets the "url" field.
+func (feu *FileEntityUpdate) SetURL(s string) *FileEntityUpdate {
+	feu.mutation.SetURL(s)
+	return feu
+}
+
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (feu *FileEntityUpdate) SetOwnerID(id int) *FileEntityUpdate {
+	feu.mutation.SetOwnerID(id)
+	return feu
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (feu *FileEntityUpdate) SetNillableOwnerID(id *int) *FileEntityUpdate {
+	if id != nil {
+		feu = feu.SetOwnerID(*id)
+	}
+	return feu
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (feu *FileEntityUpdate) SetOwner(u *User) *FileEntityUpdate {
+	return feu.SetOwnerID(u.ID)
+}
+
 // Mutation returns the FileEntityMutation object of the builder.
 func (feu *FileEntityUpdate) Mutation() *FileEntityMutation {
 	return feu.mutation
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (feu *FileEntityUpdate) ClearOwner() *FileEntityUpdate {
+	feu.mutation.ClearOwner()
+	return feu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -39,12 +96,18 @@ func (feu *FileEntityUpdate) Save(ctx context.Context) (int, error) {
 		affected int
 	)
 	if len(feu.hooks) == 0 {
+		if err = feu.check(); err != nil {
+			return 0, err
+		}
 		affected, err = feu.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*FileEntityMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = feu.check(); err != nil {
+				return 0, err
 			}
 			feu.mutation = mutation
 			affected, err = feu.sqlSave(ctx)
@@ -86,6 +149,16 @@ func (feu *FileEntityUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (feu *FileEntityUpdate) check() error {
+	if v, ok := feu.mutation.Name(); ok {
+		if err := fileentity.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "FileEntity.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (feu *FileEntityUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	_spec := &sqlgraph.UpdateSpec{
 		Node: &sqlgraph.NodeSpec{
@@ -103,6 +176,76 @@ func (feu *FileEntityUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := feu.mutation.Name(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldName,
+		})
+	}
+	if value, ok := feu.mutation.GetType(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldType,
+		})
+	}
+	if value, ok := feu.mutation.Size(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: fileentity.FieldSize,
+		})
+	}
+	if value, ok := feu.mutation.AddedSize(); ok {
+		_spec.Fields.Add = append(_spec.Fields.Add, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: fileentity.FieldSize,
+		})
+	}
+	if value, ok := feu.mutation.URL(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldURL,
+		})
+	}
+	if feu.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   fileentity.OwnerTable,
+			Columns: []string{fileentity.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := feu.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   fileentity.OwnerTable,
+			Columns: []string{fileentity.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, feu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -123,9 +266,65 @@ type FileEntityUpdateOne struct {
 	mutation *FileEntityMutation
 }
 
+// SetName sets the "name" field.
+func (feuo *FileEntityUpdateOne) SetName(s string) *FileEntityUpdateOne {
+	feuo.mutation.SetName(s)
+	return feuo
+}
+
+// SetType sets the "type" field.
+func (feuo *FileEntityUpdateOne) SetType(s string) *FileEntityUpdateOne {
+	feuo.mutation.SetType(s)
+	return feuo
+}
+
+// SetSize sets the "size" field.
+func (feuo *FileEntityUpdateOne) SetSize(i int64) *FileEntityUpdateOne {
+	feuo.mutation.ResetSize()
+	feuo.mutation.SetSize(i)
+	return feuo
+}
+
+// AddSize adds i to the "size" field.
+func (feuo *FileEntityUpdateOne) AddSize(i int64) *FileEntityUpdateOne {
+	feuo.mutation.AddSize(i)
+	return feuo
+}
+
+// SetURL sets the "url" field.
+func (feuo *FileEntityUpdateOne) SetURL(s string) *FileEntityUpdateOne {
+	feuo.mutation.SetURL(s)
+	return feuo
+}
+
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (feuo *FileEntityUpdateOne) SetOwnerID(id int) *FileEntityUpdateOne {
+	feuo.mutation.SetOwnerID(id)
+	return feuo
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (feuo *FileEntityUpdateOne) SetNillableOwnerID(id *int) *FileEntityUpdateOne {
+	if id != nil {
+		feuo = feuo.SetOwnerID(*id)
+	}
+	return feuo
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (feuo *FileEntityUpdateOne) SetOwner(u *User) *FileEntityUpdateOne {
+	return feuo.SetOwnerID(u.ID)
+}
+
 // Mutation returns the FileEntityMutation object of the builder.
 func (feuo *FileEntityUpdateOne) Mutation() *FileEntityMutation {
 	return feuo.mutation
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (feuo *FileEntityUpdateOne) ClearOwner() *FileEntityUpdateOne {
+	feuo.mutation.ClearOwner()
+	return feuo
 }
 
 // Select allows selecting one or more fields (columns) of the returned entity.
@@ -142,12 +341,18 @@ func (feuo *FileEntityUpdateOne) Save(ctx context.Context) (*FileEntity, error) 
 		node *FileEntity
 	)
 	if len(feuo.hooks) == 0 {
+		if err = feuo.check(); err != nil {
+			return nil, err
+		}
 		node, err = feuo.sqlSave(ctx)
 	} else {
 		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 			mutation, ok := m.(*FileEntityMutation)
 			if !ok {
 				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			if err = feuo.check(); err != nil {
+				return nil, err
 			}
 			feuo.mutation = mutation
 			node, err = feuo.sqlSave(ctx)
@@ -195,6 +400,16 @@ func (feuo *FileEntityUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (feuo *FileEntityUpdateOne) check() error {
+	if v, ok := feuo.mutation.Name(); ok {
+		if err := fileentity.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "FileEntity.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (feuo *FileEntityUpdateOne) sqlSave(ctx context.Context) (_node *FileEntity, err error) {
 	_spec := &sqlgraph.UpdateSpec{
 		Node: &sqlgraph.NodeSpec{
@@ -229,6 +444,76 @@ func (feuo *FileEntityUpdateOne) sqlSave(ctx context.Context) (_node *FileEntity
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := feuo.mutation.Name(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldName,
+		})
+	}
+	if value, ok := feuo.mutation.GetType(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldType,
+		})
+	}
+	if value, ok := feuo.mutation.Size(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: fileentity.FieldSize,
+		})
+	}
+	if value, ok := feuo.mutation.AddedSize(); ok {
+		_spec.Fields.Add = append(_spec.Fields.Add, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: fileentity.FieldSize,
+		})
+	}
+	if value, ok := feuo.mutation.URL(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldURL,
+		})
+	}
+	if feuo.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   fileentity.OwnerTable,
+			Columns: []string{fileentity.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := feuo.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   fileentity.OwnerTable,
+			Columns: []string{fileentity.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &FileEntity{config: feuo.config}
 	_spec.Assign = _node.assignValues

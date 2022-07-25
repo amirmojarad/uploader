@@ -4,8 +4,10 @@ package ent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"uploader/ent/fileentity"
+	"uploader/ent/user"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -16,6 +18,49 @@ type FileEntityCreate struct {
 	config
 	mutation *FileEntityMutation
 	hooks    []Hook
+}
+
+// SetName sets the "name" field.
+func (fec *FileEntityCreate) SetName(s string) *FileEntityCreate {
+	fec.mutation.SetName(s)
+	return fec
+}
+
+// SetType sets the "type" field.
+func (fec *FileEntityCreate) SetType(s string) *FileEntityCreate {
+	fec.mutation.SetType(s)
+	return fec
+}
+
+// SetSize sets the "size" field.
+func (fec *FileEntityCreate) SetSize(i int64) *FileEntityCreate {
+	fec.mutation.SetSize(i)
+	return fec
+}
+
+// SetURL sets the "url" field.
+func (fec *FileEntityCreate) SetURL(s string) *FileEntityCreate {
+	fec.mutation.SetURL(s)
+	return fec
+}
+
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (fec *FileEntityCreate) SetOwnerID(id int) *FileEntityCreate {
+	fec.mutation.SetOwnerID(id)
+	return fec
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (fec *FileEntityCreate) SetNillableOwnerID(id *int) *FileEntityCreate {
+	if id != nil {
+		fec = fec.SetOwnerID(*id)
+	}
+	return fec
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (fec *FileEntityCreate) SetOwner(u *User) *FileEntityCreate {
+	return fec.SetOwnerID(u.ID)
 }
 
 // Mutation returns the FileEntityMutation object of the builder.
@@ -94,6 +139,23 @@ func (fec *FileEntityCreate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (fec *FileEntityCreate) check() error {
+	if _, ok := fec.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "FileEntity.name"`)}
+	}
+	if v, ok := fec.mutation.Name(); ok {
+		if err := fileentity.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "FileEntity.name": %w`, err)}
+		}
+	}
+	if _, ok := fec.mutation.GetType(); !ok {
+		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "FileEntity.type"`)}
+	}
+	if _, ok := fec.mutation.Size(); !ok {
+		return &ValidationError{Name: "size", err: errors.New(`ent: missing required field "FileEntity.size"`)}
+	}
+	if _, ok := fec.mutation.URL(); !ok {
+		return &ValidationError{Name: "url", err: errors.New(`ent: missing required field "FileEntity.url"`)}
+	}
 	return nil
 }
 
@@ -121,6 +183,58 @@ func (fec *FileEntityCreate) createSpec() (*FileEntity, *sqlgraph.CreateSpec) {
 			},
 		}
 	)
+	if value, ok := fec.mutation.Name(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldName,
+		})
+		_node.Name = value
+	}
+	if value, ok := fec.mutation.GetType(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldType,
+		})
+		_node.Type = value
+	}
+	if value, ok := fec.mutation.Size(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeInt64,
+			Value:  value,
+			Column: fileentity.FieldSize,
+		})
+		_node.Size = value
+	}
+	if value, ok := fec.mutation.URL(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: fileentity.FieldURL,
+		})
+		_node.URL = value
+	}
+	if nodes := fec.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   fileentity.OwnerTable,
+			Columns: []string{fileentity.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_files = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
