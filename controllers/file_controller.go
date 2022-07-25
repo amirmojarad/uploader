@@ -67,18 +67,53 @@ func UploadFile(crud *crud.Crud, username string, file multipart.File, header *m
 	}
 }
 
-func GetAllFiles(username string) (int, gin.H) {
+func GetAllFiles(crud *crud.Crud, username string) (int, gin.H) {
 	bucketName := username
-	objects, err := minio.GetAllFilesFromBucket(bucketName)
+	allFiles, err := crud.GetAllFiles(username)
 	if err != nil {
 		return http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"message": "error while listing objects from minio bucket",
+			"message": "error while fetching file entities from database",
+		}
+	}
+
+	return http.StatusOK, gin.H{
+		"message": fmt.Sprintf("all files in bucket with name %s", bucketName),
+		"files":   allFiles,
+	}
+}
+
+func DeleteFileWithID(crud *crud.Crud, fileID int, username string) (int, gin.H) {
+	bucketName := username
+	deletedFileEntity, err := crud.DeleteFileWithID(username, fileID)
+	if deletedFileEntity == nil {
+		return http.StatusNotFound, gin.H{
+			"message": "no file entity found with given id",
+		}
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "user") {
+			return http.StatusNotFound, gin.H{
+				"message": "user not found",
+				"error":   err.Error(),
+			}
+		} else if strings.Contains(err.Error(), "file") {
+			return http.StatusInternalServerError, gin.H{
+				"message": "error while deleting file from database",
+				"error":   err.Error(),
+			}
+		}
+	}
+	err = minio.DeleteFileWithName(bucketName, deletedFileEntity.Name)
+	if err != nil {
+		return http.StatusInternalServerError, gin.H{
+			"message": "error while deleting object from minio bucket",
+			"error":   err.Error(),
 		}
 	}
 	return http.StatusOK, gin.H{
-		"message": fmt.Sprintf("all files in bucket with name %s", bucketName),
-		"files":   objects,
+		"message": "file deleted successfully",
+		"file":    deletedFileEntity,
 	}
 }
 

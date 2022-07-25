@@ -50,7 +50,7 @@ func (api API) SetUpAPI() {
 
 	fileGroup.POST("", api.upload())
 	fileGroup.GET("/", api.getAllFiles())
-	fileGroup.DELETE("/", api.delete())
+	fileGroup.DELETE("/:file_id", api.delete())
 
 }
 
