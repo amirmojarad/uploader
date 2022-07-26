@@ -24,9 +24,9 @@ func TestBucketExists(t *testing.T) {
 	loadEnv()
 
 	minioInstance := minio.NewMinio()
-	minioInstance.Connect()
-
 	bucketName := os.Getenv("MINIO_BUCKET")
+	minioInstance.ConnectToBucket(bucketName)
+
 	ok, err := minioInstance.MinioClient.BucketExists(minioInstance.Ctx, bucketName)
 	if err != nil {
 		t.Error(err)

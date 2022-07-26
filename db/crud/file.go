@@ -3,6 +3,7 @@ package crud
 import (
 	"errors"
 	"uploader/ent"
+	"uploader/ent/fileentity"
 )
 
 func (crud Crud) CreateFile(file *ent.FileEntity, user *ent.User) (*ent.FileEntity, error) {
@@ -21,6 +22,14 @@ func (crud Crud) GetAllFiles(username string) ([]*ent.FileEntity, error) {
 		return nil, err
 	}
 	return user.QueryFiles().All(*crud.Ctx)
+}
+
+func (crud Crud) GetFile(username string, fileID int) (*ent.FileEntity, error) {
+	user, err := crud.GetUserWithUsername(username)
+	if err != nil {
+		return nil, err
+	}
+	return user.QueryFiles().Where(fileentity.IDEQ(fileID)).First(*crud.Ctx)
 }
 
 func (crud Crud) DeleteFileWithID(username string, id int) (*ent.FileEntity, error) {

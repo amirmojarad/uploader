@@ -40,6 +40,17 @@ func GetAllFilesFromBucket(bucketName string) ([]*minio.ObjectInfo, error) {
 	return objects, nil
 }
 
+func GetFileFromBucket(bucketName, objectName string) (*minio.Object, error) {
+	minioInstance := NewMinio()
+	minioInstance.ConnectToBucket(bucketName)
+	object, err := minioInstance.MinioClient.GetObject(context.Background(), bucketName, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return object, err
+
+}
+
 func DeleteFileWithName(bucketName, fileName string) error {
 	minioInstance := NewMinio()
 	minioInstance.ConnectToBucket(bucketName)

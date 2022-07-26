@@ -48,16 +48,6 @@ func TestRegisterDuplicate(t *testing.T) {
 	log.Println(w.Body)
 }
 
-type RegisterSchema struct {
-	Message string `json:"message"`
-	Token   string `json:"token"`
-	User    struct {
-		Id       int    `json:"id"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-	} `json:"user"`
-}
-
 func TestRegister(t *testing.T) {
 	tc := GetTestClientAndContext(t)
 	defer tc.CallCancelAndClose()
